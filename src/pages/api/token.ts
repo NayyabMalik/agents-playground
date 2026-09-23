@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 
 import { TokenSourceRequestPayload } from "livekit-client";
-import { AccessToken } from "livekit-server-sdk";
+import { AccessToken, RoomAgentDispatch } from "livekit-server-sdk";
 import { RoomConfiguration } from "@livekit/protocol";
 
 const apiKey = process.env.LIVEKIT_API_KEY;
@@ -49,9 +49,22 @@ async function createToken(request: TokenRequest) {
   if (request.participant_attributes) {
     at.attributes = request.participant_attributes;
   }
-  if (request.room_config) {
-    at.roomConfig = RoomConfiguration.fromJson(request.room_config);
+  
+  // Initialize room_config if not passed by the client
+  const roomConfig = request.room_config 
+    ? RoomConfiguration.fromJson(request.room_config) 
+    : new RoomConfiguration({});
+
+  // Ensure appointment-scheduling-laca is dispatched to the room
+  if (!roomConfig.agents || roomConfig.agents.length === 0) {
+    roomConfig.agents = [
+      new RoomAgentDispatch({
+        agentName: "appointment-scheduling-laca",
+      }),
+    ];
   }
+
+  at.roomConfig = roomConfig;
 
   return at.toJwt();
 }
